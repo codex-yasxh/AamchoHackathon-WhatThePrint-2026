@@ -22,13 +22,13 @@ function formatDate(iso) {
   return new Date(iso).toLocaleString();
 }
 
-const STATUS_ORDER = ["PENDING", "APPROVED", "PRINTING", "DONE", "FAILED"];
+const STATUS_ORDER = ["PENDING", "APPROVED", "PRINTING", "DONE", "FAILED", "REJECTED"];
 
 function AdminPage({ apiBaseUrl }) {
   const [jobs, setJobs] = useState([]);
   const [stats, setStats] = useState({
-    counts: { PENDING: 0, APPROVED: 0, PRINTING: 0, DONE: 0, FAILED: 0 },
-    today_counts: { PENDING: 0, APPROVED: 0, PRINTING: 0, DONE: 0, FAILED: 0 },
+    counts: { PENDING: 0, APPROVED: 0, PRINTING: 0, DONE: 0, FAILED: 0, REJECTED: 0 },
+    today_counts: { PENDING: 0, APPROVED: 0, PRINTING: 0, DONE: 0, FAILED: 0, REJECTED: 0 },
     todayTrend: [],
   });
 
@@ -36,6 +36,7 @@ function AdminPage({ apiBaseUrl }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [approvingId, setApprovingId] = useState("");
+  const [rejectingId, setRejectingId] = useState("");
 
   const pendingCount = useMemo(() => jobs.length, [jobs]);
 
@@ -137,6 +138,30 @@ function AdminPage({ apiBaseUrl }) {
       setError(err.message || "Failed to approve job");
     } finally {
       setApprovingId("");
+    }
+  };
+
+  const rejectJob = async (jobId) => {
+    setRejectingId(jobId);
+    setError("");
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/jobs/${jobId}/reject`, {
+        method: "PUT",
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "Failed to reject job");
+      }
+
+      setJobs((prev) => prev.filter((job) => job.id !== jobId));
+      await fetchStats();
+    } catch (err) {
+      console.error("[ADMIN REJECT ERROR]", err);
+      setError(err.message || "Failed to reject job");
+    } finally {
+      setRejectingId("");
     }
   };
 
@@ -242,7 +267,7 @@ function AdminPage({ apiBaseUrl }) {
                   <th className="p-3 text-left font-normal">File Name</th>
                   <th className="p-3 text-left font-normal">Created Time</th>
                   <th className="p-3 text-left font-normal">Status</th>
-                  <th className="p-3 text-right font-normal">Action</th>
+                  <th className="p-3 text-right font-normal">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -252,14 +277,24 @@ function AdminPage({ apiBaseUrl }) {
                     <td className="p-3 text-[var(--muted)]">{formatDate(job.created_at)}</td>
                     <td className="p-3">{job.status}</td>
                     <td className="p-3 text-right">
+                      <div className="flex justify-end gap-2">
                       <button
                         className="rounded-[8px] bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-[#0d0d0d] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                         type="button"
                         onClick={() => approveJob(job.id)}
-                        disabled={approvingId === job.id}
+                        disabled={approvingId === job.id || rejectingId === job.id}
                       >
                         {approvingId === job.id ? "Approving..." : "Approve"}
                       </button>
+                      <button
+                        className="rounded-[8px] border border-[var(--danger)] px-3 py-2 text-xs font-semibold text-[var(--danger)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        type="button"
+                        onClick={() => rejectJob(job.id)}
+                        disabled={rejectingId === job.id || approvingId === job.id}
+                      >
+                        {rejectingId === job.id ? "Rejecting..." : "Reject"}
+                      </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

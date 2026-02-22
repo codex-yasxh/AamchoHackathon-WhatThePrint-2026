@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const jobRoutes = require('./routes/jobs');
+const { cleanupDoneJobs, DONE_RETENTION_MINUTES } = require('./src/services/jobCleanup');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -32,6 +33,7 @@ const uploadLimiter = rateLimit({
 
 app.use('/api/jobs/upload', uploadLimiter);
 app.use('/api/jobs/:id/approve', writeLimiter);
+app.use('/api/jobs/:id/reject', writeLimiter);
 app.use('/api/jobs/:id/status', writeLimiter);
 
 // Root route for quick browser checks
@@ -47,6 +49,7 @@ app.get('/', (req, res) => {
       'GET /api/jobs/:id',
       'GET /api/jobs/:id/queue',
       'PUT /api/jobs/:id/approve',
+      'PUT /api/jobs/:id/reject',
       'PUT /api/jobs/:id/status'
     ]
   });
@@ -71,6 +74,23 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
+const cleanupIntervalMs = 60 * 1000;
+setInterval(async () => {
+  try {
+    const result = await cleanupDoneJobs();
+    if (result.deletedJobs > 0 || result.deletedFiles > 0) {
+      console.log('[DONE CLEANUP]', {
+        deletedJobs: result.deletedJobs,
+        deletedFiles: result.deletedFiles,
+        retentionMinutes: DONE_RETENTION_MINUTES
+      });
+    }
+  } catch (error) {
+    console.error('[DONE CLEANUP ERROR]', error);
+  }
+}, cleanupIntervalMs);
+
 app.listen(port, () => {
   console.log(`[BOOT] Server running on port ${port}`);
+  console.log(`[BOOT] DONE cleanup enabled. Retention: ${DONE_RETENTION_MINUTES} minute(s)`);
 });

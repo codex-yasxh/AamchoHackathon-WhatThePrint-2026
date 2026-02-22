@@ -124,7 +124,7 @@ function App() {
           pollingError: nextPollingError,
         }));
 
-        if (nextStatus === "DONE" || nextStatus === "FAILED") {
+        if (nextStatus === "DONE" || nextStatus === "FAILED" || nextStatus === "REJECTED") {
           clearInterval(intervalId);
         }
       } catch (error) {

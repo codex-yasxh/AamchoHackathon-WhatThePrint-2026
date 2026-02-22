@@ -9,6 +9,7 @@ function formatEta(seconds) {
 function getStatusLine(status) {
   if (status === "DONE") return "Ready for pickup";
   if (status === "FAILED") return "Error occurred";
+  if (status === "REJECTED") return "Rejected by admin";
   if (status === "PRINTING") return "Currently printing...";
   return status;
 }
@@ -99,7 +100,7 @@ function OrderSummary({
           </p>
           <p className="mb-1">People ahead of you: {trackedJob.position ?? 0}</p>
           <p className="mb-1">Estimated wait time: {formatEta(trackedJob.estimatedSeconds)}</p>
-          {trackedJob.status !== "DONE" && trackedJob.status !== "FAILED" && (
+          {trackedJob.status !== "DONE" && trackedJob.status !== "FAILED" && trackedJob.status !== "REJECTED" && (
             <p className="text-[var(--muted)]">Auto-updating...</p>
           )}
           {trackedJob.pollingError && <p className="text-[var(--danger)]">{trackedJob.pollingError}</p>}

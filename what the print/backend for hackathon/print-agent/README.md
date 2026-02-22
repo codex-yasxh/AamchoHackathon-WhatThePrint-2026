@@ -55,3 +55,5 @@ If printing fails during demo, inspect these logs first.
 5. Update status to `DONE` on success, `FAILED` on error
 6. Delete temp file
 7. Reset stale `PRINTING` jobs older than threshold back to `APPROVED`
+
+Jobs marked `REJECTED` are never selected by the agent.

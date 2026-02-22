@@ -1,32 +1,23 @@
 const express = require('express');
 const multer = require('multer');
 const supabase = require('../src/lib/supabase');
+const {
+  ALLOWED_STATUS_VALUES,
+  ALLOWED_STATUS_UPDATES,
+  canTransition
+} = require('../src/lib/statusModel');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-const STORAGE_BUCKET = 'print-files';
+const STORAGE_BUCKET = process.env.PRINT_BUCKET || 'print-files';
 const AVG_PRINT_TIME_SECONDS = 30;
 const MAX_COPIES = 100;
 const PAGE_RANGE_REGEX = /^(\d+(-\d+)?)(,\d+(-\d+)?)*$/;
-const ALLOWED_STATUS_VALUES = ['PENDING', 'APPROVED', 'PRINTING', 'DONE', 'FAILED'];
-const ALLOWED_STATUS_UPDATES = ['PRINTING', 'DONE', 'FAILED'];
-const STATUS_TRANSITIONS = {
-  PENDING: ['APPROVED'],
-  APPROVED: ['PRINTING'],
-  PRINTING: ['DONE', 'FAILED'],
-  DONE: [],
-  FAILED: []
-};
 
 function buildStoragePath(originalName) {
   const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
   return `jobs/${Date.now()}-${safeName}`;
-}
-
-function canTransition(currentStatus, nextStatus) {
-  const allowed = STATUS_TRANSITIONS[currentStatus] || [];
-  return allowed.includes(nextStatus);
 }
 
 function isValidUuid(id) {
@@ -172,7 +163,8 @@ router.get('/stats', async (req, res) => {
       APPROVED: 0,
       PRINTING: 0,
       DONE: 0,
-      FAILED: 0
+      FAILED: 0,
+      REJECTED: 0
     };
 
     const { data: statusRows, error: statusError } = await supabase
@@ -432,6 +424,60 @@ router.put('/:id/approve', async (req, res) => {
     return res.status(200).json({ success: true, data: updatedJob });
   } catch (error) {
     console.error('[PUT /:id/approve ERROR]', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// PUT /api/jobs/:id/reject
+// Enforces transition: PENDING -> REJECTED
+router.put('/:id/reject', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidUuid(id)) {
+      return res.status(400).json({ success: false, error: 'Invalid job id format' });
+    }
+
+    const { job: existingJob, error: fetchError } = await getJobById(id);
+
+    if (fetchError) {
+      console.error('[DB REJECT FETCH ERROR]', fetchError);
+      return res.status(500).json({ success: false, error: 'Failed to load current job status' });
+    }
+
+    if (!existingJob) {
+      return res.status(404).json({ success: false, error: 'Job not found' });
+    }
+
+    if (!canTransition(existingJob.status, 'REJECTED')) {
+      return res.status(409).json({
+        success: false,
+        error: `Invalid status transition: ${existingJob.status} -> REJECTED`
+      });
+    }
+
+    const { data: updatedJob, error: updateError } = await supabase
+      .from('print_jobs')
+      .update({ status: 'REJECTED', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', existingJob.status)
+      .select('*')
+      .maybeSingle();
+
+    if (updateError) {
+      console.error('[DB REJECT UPDATE ERROR]', updateError);
+      return res.status(500).json({ success: false, error: 'Failed to reject job' });
+    }
+
+    if (!updatedJob) {
+      return res.status(409).json({ success: false, error: 'Job status changed concurrently. Retry.' });
+    }
+
+    console.log('[REJECT SUCCESS] Transition:', { id, from: existingJob.status, to: updatedJob.status });
+
+    return res.status(200).json({ success: true, data: updatedJob });
+  } catch (error) {
+    console.error('[PUT /:id/reject ERROR]', error);
     return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
