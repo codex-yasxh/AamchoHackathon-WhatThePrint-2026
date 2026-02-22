@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -7,10 +7,39 @@ const jobRoutes = require('./routes/jobs');
 const { cleanupDoneJobs, DONE_RETENTION_MINUTES } = require('./src/services/jobCleanup');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const defaultAllowedOrigins = [
+  'http://localhost:5173',
+  'https://what-the-print-frontend.vercel.app'
+];
+
+const corsAllowlist = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
 
 // Core middleware
-app.use(cors());
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Allow non-browser requests (no Origin header), e.g. health checks / curl.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (corsAllowlist.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('CORS not allowed'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true
+  })
+);
 app.use(express.json());
 
 // Basic write limiter to reduce abuse on mutating endpoints
@@ -90,7 +119,8 @@ setInterval(async () => {
   }
 }, cleanupIntervalMs);
 
-app.listen(port, () => {
-  console.log(`[BOOT] Server running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`[BOOT] Server running on port ${PORT}`);
   console.log(`[BOOT] DONE cleanup enabled. Retention: ${DONE_RETENTION_MINUTES} minute(s)`);
+  console.log('[BOOT] CORS allowlist:', corsAllowlist);
 });
