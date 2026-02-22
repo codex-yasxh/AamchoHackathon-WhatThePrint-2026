@@ -5,7 +5,7 @@
 This project works across two physical environments.
 
 ### World 1: Cloud
-- Frontend: Netlify
+- Frontend: Vercel
 - Backend API: Node.js + Express (Render)
 - Database: Supabase PostgreSQL
 - File Storage: Supabase Storage
