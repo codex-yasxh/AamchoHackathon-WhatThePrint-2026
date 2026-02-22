@@ -73,7 +73,7 @@ Current required columns used by code:
 Storage bucket holds file binaries (`print-files` by default).
 
 If `status` is enforced via enum/check in Supabase, run:
-- `backend for hackathon/sql/2026-02-22-rejected-status.sql`
+- `backend/sql/2026-02-22-rejected-status.sql`
 
 ## API Overview
 Base backend path: `/api/jobs`
@@ -89,13 +89,13 @@ Base backend path: `/api/jobs`
 - `PUT /:id/status` - controlled status updates
 
 ## Project Structure
-- `backend for hackathon/` - Express API + Supabase integration
-- `backend for hackathon/hackathon project/` - React frontend (customer + `/admin`)
-- `backend for hackathon/print-agent/` - local polling and printing worker
+- `backend/` - Express API + Supabase integration
+- `frontend/` - React frontend (customer + `/admin`)
+- `print-agent/` - local polling and printing worker
 
 ## Environment Setup
 
-### 1) Backend (`backend for hackathon/.env`)
+### 1) Backend (`backend/.env`)
 ```env
 PORT=3000
 SUPABASE_URL=your_supabase_url
@@ -104,12 +104,12 @@ PRINT_BUCKET=print-files
 DONE_RETENTION_MINUTES=2
 ```
 
-### 2) Frontend (`backend for hackathon/hackathon project/.env`)
+### 2) Frontend (`frontend/.env`)
 ```env
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
-### 3) Print Agent (`backend for hackathon/print-agent/.env`)
+### 3) Print Agent (`print-agent/.env`)
 ```env
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
@@ -124,21 +124,21 @@ AGENT_LOG_FILE=logs/agent.log
 
 ### Backend
 ```bash
-cd "backend for hackathon"
+cd "backend"
 npm install
 npm start
 ```
 
 ### Frontend
 ```bash
-cd "backend for hackathon/hackathon project"
+cd "frontend"
 npm install
 npm run dev
 ```
 
 ### Print Agent (on Windows shop PC)
 ```bash
-cd "backend for hackathon/print-agent"
+cd "print-agent"
 npm install
 npm start
 ```
